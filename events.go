@@ -3,6 +3,7 @@ package sentry
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/teamjobot/go-sentry-api/datatype"
@@ -85,6 +86,39 @@ type Event struct {
 func (c *Client) GetProjectEvent(o Organization, p Project, eventID string) (Event, error) {
 	var event Event
 	err := c.do("GET", fmt.Sprintf("projects/%s/%s/events/%s", *o.Slug, *p.Slug, eventID), &event, nil)
+	return event, err
+}
+
+type DiscoveryEventResp struct {
+	Data []DiscoveryEvent `json:"data"`
+}
+
+type DiscoveryEvent struct {
+	Timestamp   *string `json:"timestamp"`
+	UserDisplay *string `json:"user.display"`
+	EventType   *string `json:"event.type"`
+	Title       *string `json:"title"`
+	Project     *string `json:"project"`
+	ProjectName *string `json:"project.name"`
+	ID          *string `json:"id"`
+}
+
+// GetProjectEventsBySpan will fetch the first event that has a span with the given spanID.
+func (c *Client) GetProjectEventsBySpan(o Organization, p Project, spanID string) (DiscoveryEventResp, error) {
+	var event DiscoveryEventResp
+	query := fmt.Sprintf("trace.span:%s", spanID)
+
+	const fields = "field=title&field=event.type&field=user.display&field=timestamp"
+
+	endpoint := fmt.Sprintf(
+		"organizations/%s/events/?%s&project=%s&per_page=1&query=%s&referrer=api.discover.query-table",
+		*o.Slug,
+		fields,
+		p.ID,
+		url.QueryEscape(query))
+
+	err := c.do("GET", endpoint, &event, nil)
+
 	return event, err
 }
 
